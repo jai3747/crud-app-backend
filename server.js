@@ -18,16 +18,20 @@ const corsOptions = {
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:4173',
-    'http:/172.31.42.232:5174',
-    'http:/172.31.42.232:5173',
-    'http:/172.31.42.232:5175',
-    'http:/172.31.40.92:5000',
-    // Add your production frontend URLs here
+    // Frontend public and private IPs
+    'http://65.0.182.148:5173',
+    'http://172.31.42.232:5173',
+    'http://172.31.42.232:5174',
+    'http://172.31.42.232:5175',
+    // Backend public and private IPs
+    'http://13.126.233.214:5000',
+    'http://172.31.40.92:5000',
+    // Add any other frontend URLs
     process.env.FRONTEND_URL
   ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
@@ -57,10 +61,7 @@ const connectDB = async () => {
     console.log("🔄 Attempting to connect to MongoDB...");
     console.log("🔗 MongoDB URL:", process.env.MONGO_URL.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in logs
     
-    await mongoose.connect(process.env.MONGO_URL, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGO_URL);
     
     console.log("✅ Connected to MongoDB successfully");
     console.log(`🌐 Database: ${mongoose.connection.name}`);
@@ -133,13 +134,15 @@ app.get("/api/health", (req, res) => {
     },
     server: {
       port: port,
-      cors: corsOptions.origin
+      cors: corsOptions.origin,
+      ip: req.ip || req.connection.remoteAddress
     }
   };
   console.log("🏥 Health check requested:", {
     status: healthCheck.status,
     database: healthCheck.database.status,
-    uptime: healthCheck.uptime + 's'
+    uptime: healthCheck.uptime + 's',
+    from: req.ip || req.connection.remoteAddress
   });
   res.json(healthCheck);
 });
@@ -377,6 +380,8 @@ app.get("/", (req, res) => {
   res.json({
     message: "User Management API",
     version: "1.0.0",
+    environment: process.env.NODE_ENV || 'development',
+    cors: corsOptions.origin,
     endpoints: {
       health: "/api/health",
       users: "/api/users",
@@ -409,10 +414,13 @@ process.on('SIGTERM', () => {
   });
 });
 
-// Start server
+// Start server on all interfaces
 app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${port}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${port}/api/health`);
+  console.log(`🔗 Public health check: http://13.126.233.214:${port}/api/health`);
   console.log(`📱 API Base: http://localhost:${port}/api`);
+  console.log(`📱 Public API Base: http://13.126.233.214:${port}/api`);
+  console.log(`🎯 CORS Origins: ${corsOptions.origin.join(', ')}`);
 });
